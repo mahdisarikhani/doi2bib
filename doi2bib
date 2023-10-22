@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import argparse
+import json
+import re
+import sys
+from urllib.request import urlopen
+
+
+def bib(doi):
+    url = f"https://api.crossref.org/works/{doi}/transform/application/x-bibtex"
+    with urlopen(url) as f:
+        print(f.read().decode("UTF-8"))
+
+
+def citations(doi):
+    url = f"https://opencitations.net/index/coci/api/v1/citations/{doi}"
+    with urlopen(url) as f:
+        resp = json.loads(f.read())
+    for r in resp:
+        bib(r["citing"])
+
+
+def references(doi):
+    url = f"https://opencitations.net/index/coci/api/v1/references/{doi}"
+    with urlopen(url) as f:
+        resp = json.loads(f.read())
+    for r in resp:
+        bib(r["cited"])
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("doi", nargs="+")
+    parser.add_argument("-r", "--references", action="store_true")
+    parser.add_argument("-c", "--citations", action="store_true")
+    args = parser.parse_args()
+
+    pattern = re.compile(r"(?:https?://doi\.org/)?(?:urn:)?(?:doi:)?(10(?:\.[0-9]+)+[/:](?:.+))")
+    dois = []
+    for url in args.doi:
+        if match := pattern.match(url):
+            dois.append(match.groups()[0])
+        else:
+            print("error:", url)
+            sys.exit()
+
+    for doi in dois:
+        bib(doi)
+        if args.references:
+            references(doi)
+        if args.citations:
+            citations(doi)
+
+
+if __name__ == "__main__":
+    main()
